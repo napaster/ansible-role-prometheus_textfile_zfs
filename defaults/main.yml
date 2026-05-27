@@ -1,0 +1,18 @@
+---
+# Textfile collector для node_exporter, выгребающий ZFS-метрики которые
+# не отдаёт встроенный --collector.zfs (last scrub timestamp, scrub duration,
+# errors, snapshot count и т.п.).
+#
+# Пишет в /var/lib/prometheus-node-exporter/textfile_collector/zfs_pools.prom
+# каждые prometheus_textfile_zfs_interval минут через cron + по ZED-hook
+# (scrub_finish/resilver_finish) сразу же.
+
+prometheus_textfile_zfs_script_dest: '/usr/local/bin/zfs_textfile_collect.sh'
+prometheus_textfile_zfs_textfile_dir: '/var/lib/prometheus-node-exporter/textfile_collector'
+prometheus_textfile_zfs_textfile_name: 'zfs_pools.prom'
+prometheus_textfile_zfs_cron_path: '/etc/cron.d/zfs_textfile_collect'
+prometheus_textfile_zfs_interval_min: 5
+# ZED hooks dir отличается: Debian/Proxmox=/usr/lib/zfs-linux/, Arch=/usr/lib/zfs/.
+# `prometheus_textfile_zfs_zed_dir` определяется в tasks/main.yml через stat,
+# а здесь — fallback для документации.
+prometheus_textfile_zfs_zed_hook_dest: '{{ prometheus_textfile_zfs_zed_dir | default("/usr/lib/zfs-linux") }}/zed.d/scan_finish-prometheus.sh'

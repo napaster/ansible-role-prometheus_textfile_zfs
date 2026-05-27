@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  role_name: "prometheus_textfile_zfs"
+  namespace: "none"
+  author: "Denis Pershev <dpershev@napaster.ru>"
+  description: "ZFS textfile collector + ZED hooks for node_exporter (scrub status, iostat, vdev errors, compression ratio)"
+  license: "MIT"
+  min_ansible_version: "3.0.0"
+  platforms:
+    - name: "ArchLinux"
+      versions:
+        - 'all'
+    - name: "Debian"
+      versions:
+        - 'all'
+    - name: "EL"
+      versions:
+        - 'all'
+dependencies: []

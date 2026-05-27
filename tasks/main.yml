@@ -1,0 +1,64 @@
+---
+- name: 'prometheus_textfile_zfs | Detect ZED hook dir (Debian vs Arch)'
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: zed_dir_stat
+  loop:
+    - '/usr/lib/zfs-linux'
+    - '/usr/lib/zfs'
+
+- name: 'prometheus_textfile_zfs | Set ZED dir fact'
+  ansible.builtin.set_fact:
+    prometheus_textfile_zfs_zed_dir: "{{ (zed_dir_stat.results | selectattr('stat.isdir', 'defined') | selectattr('stat.isdir', 'equalto', true) | map(attribute='item') | first) }}"
+
+- name: 'prometheus_textfile_zfs | Ensure textfile dir exists'
+  ansible.builtin.file:
+    path: "{{ prometheus_textfile_zfs_textfile_dir }}"
+    state: directory
+    owner: 'prometheus'
+    group: 'prometheus'
+    mode: '0755'
+
+- name: 'prometheus_textfile_zfs | Install collector script'
+  ansible.builtin.copy:
+    src: 'zfs_textfile_collect.sh'
+    dest: "{{ prometheus_textfile_zfs_script_dest }}"
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+
+- name: 'prometheus_textfile_zfs | Install ZED hook script'
+  ansible.builtin.copy:
+    src: 'scan_finish-prometheus.sh'
+    dest: "{{ prometheus_textfile_zfs_zed_hook_dest }}"
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+  notify: 'Restart zfs-zed'
+
+- name: 'prometheus_textfile_zfs | Symlink ZED hook into /etc/zfs/zed.d/'
+  ansible.builtin.file:
+    src: "{{ prometheus_textfile_zfs_zed_hook_dest }}"
+    dest: "/etc/zfs/zed.d/{{ item }}"
+    state: link
+    force: true
+  loop:
+    - 'scrub_finish-prometheus.sh'
+    - 'resilver_finish-prometheus.sh'
+  notify: 'Restart zfs-zed'
+
+- name: 'prometheus_textfile_zfs | Install cron entry (refresh every N min)'
+  ansible.builtin.copy:
+    dest: "{{ prometheus_textfile_zfs_cron_path }}"
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+    content: |
+      # Refresh ZFS textfile metrics (last scrub/resilver, snapshots count etc).
+      # Also triggered by ZED scrub_finish/resilver_finish hooks immediately on event.
+      */{{ prometheus_textfile_zfs_interval_min }} * * * * root {{ prometheus_textfile_zfs_script_dest }} >/dev/null 2>&1
+
+- name: 'prometheus_textfile_zfs | Run collector once to populate first metrics'
+  ansible.builtin.command:
+    cmd: "{{ prometheus_textfile_zfs_script_dest }}"
+  changed_when: false
