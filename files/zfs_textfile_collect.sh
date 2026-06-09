@@ -100,6 +100,8 @@ parse_scan_line() {
 {
     echo "# HELP zfs_pool_compression_ratio Compression ratio for the pool (pdf/zfs_exporter does not expose this)"
     echo "# TYPE zfs_pool_compression_ratio gauge"
+    echo "# HELP zfs_pool_compression_info Pool compression algorithm (label-only info metric, value=1)"
+    echo "# TYPE zfs_pool_compression_info gauge"
     echo "# HELP zfs_pool_iostat_read_bytes_per_second Pool I/O read throughput (B/s, 1-sec sample)"
     echo "# TYPE zfs_pool_iostat_read_bytes_per_second gauge"
     echo "# HELP zfs_pool_iostat_write_bytes_per_second Pool I/O write throughput (B/s, 1-sec sample)"
@@ -201,6 +203,12 @@ for pool in $pools; do
     # compression ratio — `zfs get -H -p -o value compressratio <pool>` (raw, e.g. "1.42")
     comp=$("$ZFS" get -H -p -o value compressratio "$pool" 2>/dev/null || echo "0")
     echo "zfs_pool_compression_ratio{pool=\"${pool}\"} ${comp:-0}" >> "$TMP"
+
+    # compression algorithm — label-only info metric (off / lz4 / zstd / zstd-3 / gzip / ...).
+    # Используется для алёрта ZfsCompressionOff (зачем алёртить на низкий ratio если он
+    # обусловлен данными — единственное actionable событие это compression=off).
+    comp_algo=$("$ZFS" get -H -o value compression "$pool" 2>/dev/null || echo "unknown")
+    echo "zfs_pool_compression_info{pool=\"${pool}\",algorithm=\"${comp_algo}\"} 1" >> "$TMP"
 
     # vdev errors + state per-disk
     parse_vdev_status "$pool"
