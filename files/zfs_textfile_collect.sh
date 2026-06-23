@@ -147,17 +147,18 @@ parse_vdev_status() {
 
     # awk парсит с-by-line; учитываем что NAME может быть с leading-pad,
     # ловим формат "  X+spaces  STATE  N  N  N" где STATE — одно из known.
+    # STATE READ WRITE CKSUM ищем через regex — после CKSUM zpool может
+    # приписать "too many errors" / "(awaiting resilver)" / "(repairing)" и
+    # последние NF полей оказываются словами вместо чисел.
     "$ZPOOL" status -P "$pool" 2>/dev/null | awk -v pool="$pool" '
         /^[[:space:]]+NAME[[:space:]]+STATE/ { in_table=1; next }
         /^errors:/                            { in_table=0 }
         /^[[:space:]]*$/                      { next }
-        in_table && NF >= 5 {
-            # последние 4 поля = STATE READ WRITE CKSUM (numerics).
-            # NAME = всё что до STATE (может быть с пробелами в редких случаях).
-            state = $(NF-3); r = $(NF-2); w = $(NF-1); c = $(NF)
-            # Извлекаем имя — первое поле (без leading spaces awk нормально).
+        in_table && match($0, /(ONLINE|DEGRADED|FAULTED|OFFLINE|UNAVAIL|REMOVED)[ \t]+[0-9]+[ \t]+[0-9]+[ \t]+[0-9]+/) {
+            s = substr($0, RSTART, RLENGTH)
+            split(s, parts, /[ \t]+/)
+            state = parts[1]; r = parts[2]; w = parts[3]; c = parts[4]
             name = $1
-            # Skip самого pool-уровня (там state pool overall)
             if (name == pool) next
             print name, state, r, w, c
         }
