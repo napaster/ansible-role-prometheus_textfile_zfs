@@ -2,7 +2,10 @@
 # zfs_textfile_collect.sh — генерит prometheus textfile metrics для всех ZFS pools
 # на хосте. Запускается как cron каждые N минут И как ZED-hook (scan_finish).
 #
-# Output: /var/lib/prometheus-node-exporter/textfile_collector/zfs_pools.prom
+# Output: $TEXTFILE_DIR/$TEXTFILE_NAME. Значения по умолчанию ниже —
+# вызывающий (cron-строка и ZED-hook, оба раскатываются ролью) передаёт их
+# явно, потому что каталог обязан совпадать с --collector.textfile.directory
+# у node_exporter на конкретном хосте.
 # Метрики (атрибуты подписаны pool='<name>'):
 #   zfs_pool_last_scrub_timestamp_seconds  — unix-ts последнего scrub-completion
 #   zfs_pool_last_scrub_duration_seconds   — длительность последнего scrub
@@ -20,7 +23,8 @@
 # без scrub-line). Все expected-failures обрабатываются через `|| true`.
 
 TEXTFILE_DIR="${TEXTFILE_DIR:-/var/lib/prometheus-node-exporter/textfile_collector}"
-OUT="${TEXTFILE_DIR}/zfs_pools.prom"
+TEXTFILE_NAME="${TEXTFILE_NAME:-zfs_pools.prom}"
+OUT="${TEXTFILE_DIR}/${TEXTFILE_NAME}"
 TMP="$(mktemp "${OUT}.XXXXXX")"
 trap 'rm -f "$TMP"' EXIT
 

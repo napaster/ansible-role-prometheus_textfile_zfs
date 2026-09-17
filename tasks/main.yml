@@ -15,8 +15,8 @@
   ansible.builtin.file:
     path: "{{ prometheus_textfile_zfs_textfile_dir }}"
     state: directory
-    owner: 'prometheus'
-    group: 'prometheus'
+    owner: "{{ prometheus_textfile_zfs_textfile_dir_owner }}"
+    group: "{{ prometheus_textfile_zfs_textfile_dir_group }}"
     mode: '0755'
 
 - name: 'prometheus_textfile_zfs | Install collector script'
@@ -28,8 +28,8 @@
     mode: '0755'
 
 - name: 'prometheus_textfile_zfs | Install ZED hook script'
-  ansible.builtin.copy:
-    src: 'scan_finish-prometheus.sh'
+  ansible.builtin.template:
+    src: 'scan_finish-prometheus.sh.j2'
     dest: "{{ prometheus_textfile_zfs_zed_hook_dest }}"
     owner: 'root'
     group: 'root'
@@ -56,9 +56,14 @@
     content: |
       # Refresh ZFS textfile metrics (last scrub/resilver, snapshots count etc).
       # Also triggered by ZED scrub_finish/resilver_finish hooks immediately on event.
-      */{{ prometheus_textfile_zfs_interval_min }} * * * * root {{ prometheus_textfile_zfs_script_dest }} >/dev/null 2>&1
+      # TEXTFILE_DIR/TEXTFILE_NAME передаются явно: у скрипта свой дефолт, а
+      # каталог обязан совпадать с --collector.textfile.directory node_exporter'а.
+      */{{ prometheus_textfile_zfs_interval_min }} * * * * root TEXTFILE_DIR={{ prometheus_textfile_zfs_textfile_dir }} TEXTFILE_NAME={{ prometheus_textfile_zfs_textfile_name }} {{ prometheus_textfile_zfs_script_dest }} >/dev/null 2>&1
 
 - name: 'prometheus_textfile_zfs | Run collector once to populate first metrics'
   ansible.builtin.command:
     cmd: "{{ prometheus_textfile_zfs_script_dest }}"
+  environment:
+    TEXTFILE_DIR: "{{ prometheus_textfile_zfs_textfile_dir }}"
+    TEXTFILE_NAME: "{{ prometheus_textfile_zfs_textfile_name }}"
   changed_when: false

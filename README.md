@@ -36,7 +36,10 @@ ZFS-метрик которых **не выдаёт** ни `node_exporter --coll
 | Переменная | По умолчанию | Описание |
 |---|---|---|
 | `prometheus_textfile_zfs_script_dest` | `/usr/local/bin/zfs_textfile_collect.sh` | Куда install collector |
-| `prometheus_textfile_zfs_textfile_dir` | `/var/lib/prometheus-node-exporter/textfile_collector` | textfile dir |
+| `prometheus_textfile_zfs_textfile_dir` | `/var/lib/prometheus-node-exporter/textfile_collector` | textfile dir — **обязан совпадать с `--collector.textfile.directory` node_exporter'а на этом хосте** |
+| `prometheus_textfile_zfs_textfile_name` | `zfs_pools.prom` | имя файла метрик |
+| `prometheus_textfile_zfs_textfile_dir_owner` | `prometheus` | владелец каталога; `root`, если каталог принадлежит пакету |
+| `prometheus_textfile_zfs_textfile_dir_group` | `prometheus` | группа каталога |
 | `prometheus_textfile_zfs_cron_path` | `/etc/cron.d/zfs_textfile_collect` | cron file |
 | `prometheus_textfile_zfs_interval_min` | `5` | Cron interval (минут) |
 | `prometheus_textfile_zfs_zed_dir` | auto-detect | Override если нужно |
@@ -76,3 +79,20 @@ ZFS-метрик которых **не выдаёт** ни `node_exporter --coll
 ## Лицензия
 
 MIT
+
+## Про каталог
+
+`prometheus_textfile_zfs_textfile_dir` передаётся и в cron-строку, и в ZED-hook
+как `TEXTFILE_DIR` — у скрипта есть собственный дефолт, и без явной передачи
+переменная роли управляла бы только созданием каталога, а писалось бы всё равно
+в дефолтный. Так и было до 17.09.2026.
+
+Расхождение каталогов **не даёт ни одной ошибки**: `node_textfile_scrape_error`
+честные `0`, потому что каталог, куда node_exporter смотрит, существует и
+разбирается — просто он другой. Метрики молча не доезжают, и заметно это только
+по отсутствию серий в Prometheus.
+
+На Debian дефолт сборки node_exporter — `/var/lib/prometheus/node-exporter`, туда
+же пишет пакет `prometheus-node-exporter-collectors`, и путь у него зашит в
+юнитах. Если на хосте стоит этот пакет, ставить каталог роли туда же и
+`*_owner`/`*_group` в `root`, чтобы не перебивать владельца пакетного каталога.
